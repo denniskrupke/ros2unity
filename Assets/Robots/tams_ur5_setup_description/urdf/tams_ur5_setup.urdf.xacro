@@ -1,0 +1,32 @@
+<?xml version="1.0"?>
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro"
+       name="tams_ur5_setup" > 
+  
+  <xacro:property name="pi" value="3.1415926535897931" />
+  <!-- tams corner -->
+  <xacro:include filename="$(find tams_ur5_setup_description)/urdf/tams_corner.urdf.xacro" />
+  <!-- arm -->
+  <xacro:include filename="$(find tams_ur5_description)/urdf/arm.urdf.xacro" />
+
+  <link name="world" />
+
+  <joint name="world_floor_joint" type="fixed">
+    <parent link="world" />
+    <child link = "floor" />
+    <origin xyz="0.0 0.0 0.0" rpy="0.0 0.0 0.0" />
+  </joint>
+
+  <link name="map" />
+
+  <joint name="map_world" type="fixed">
+    <parent link="world" />
+    <child link = "map" />
+    <origin xyz="0.9 1.3 0.0" rpy="0.0 0.0 -0.32" />
+  </joint>
+
+  <joint name="wall_ur5_joint" type="fixed">
+    <parent link="ur5_mount" />
+    <child link = "ur5_base_link" />
+    <origin xyz="0 0 0.003" rpy="0.0 0.0 ${pi/2}" />
+  </joint>
+</robot>

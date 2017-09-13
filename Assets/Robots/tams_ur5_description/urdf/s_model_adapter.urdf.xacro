@@ -1,0 +1,52 @@
+<?xml version="1.0"?>
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro"
+       name="s_model_adapter" >
+
+  <xacro:macro name="s_model_adapter" params="name parent *origin">
+    <link name="${name}">
+      <!-- TODO values for inertial are not correct -->
+      <inertial>
+        <mass value="0.2" />
+        <origin xyz="0.0 0.0 0.0" />
+        <inertia ixx="0.002708332" ixy="0.0" ixz="0.0"
+                 iyy="0.000708333" iyz="0.0"
+                 izz="0.003333332" />
+      </inertial>
+      <visual>
+        <origin xyz="0.0 0 0.0" rpy="0 0 0.0" />
+        <geometry>
+ 	  <cylinder length="0.035" radius="0.06"/>
+        </geometry>
+        <material name="gray">
+          <color rgba="0.2 0.2 0.2 1"/>
+        </material>
+      </visual>
+      <visual>
+        <origin xyz="0.0725 0 0" rpy="0 0 0.0" />
+        <geometry>
+	  <box size="0.035 0.035 0.035"/>
+        </geometry>
+        <material name="gray">
+          <color rgba="0.2 0.2 0.2 1"/>
+        </material>
+      </visual>
+      <collision>
+        <origin xyz="0.0 0 0.0" rpy="0 0 0.0" />
+        <geometry>
+          <cylinder length="0.035" radius="0.06"/>
+        </geometry>
+      </collision>
+      <collision>
+        <origin xyz="0.0725 0 0" rpy="0 0 0.0" />
+        <geometry>
+	  <box size="0.035 0.035 0.035"/>
+        </geometry>
+      </collision>
+    </link>
+    <joint name="${name}_joint" type="fixed">
+      <insert_block name="origin" />
+      <child link="${name}" />
+      <parent link="${parent}"/>
+    </joint>
+  </xacro:macro>
+</robot>

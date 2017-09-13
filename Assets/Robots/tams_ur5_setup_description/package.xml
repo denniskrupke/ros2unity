@@ -1,0 +1,15 @@
+<?xml version="1.0"?>
+<package>
+  <name>tams_ur5_setup_description</name>
+  <version>0.0.0</version>
+  <description>URDF of TAMS' UR5 laboratory setup</description>
+  
+  <maintainer email="goerner@informatik.uni-hamburg.de">Michael Goerner</maintainer>
+  <author email="5jonetzk@informatik.uni-hamburg.de">Yannick Jonetzko</author>
+  <license>BSD</license>
+
+  <buildtool_depend>catkin</buildtool_depend>
+  <run_depend>ur_description</run_depend>
+  <run_depend>robotiq_s_model_visualization</run_depend>
+  <run_depend>robotiq_force_torque_sensor</run_depend>
+</package>
