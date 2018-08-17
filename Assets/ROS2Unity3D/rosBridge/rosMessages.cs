@@ -6,8 +6,100 @@ namespace RosMessages{
 	public class MessageData{}
 
 
-	// contains information for controlling the robotiq-3finger adaptive gripper
-	public class OutputMessageData : MessageData{
+    namespace moveit_msgs {
+        public class CollisionObject : MessageData
+        {
+            public Header header;
+            public string id;
+
+            public object_recognition_msgs.ObjectType type;
+
+            public shape_msgs.SolidPrimitive[] primitives;
+            public geometry_msgs.Pose[] primitive_poses;
+
+            public shape_msgs.Mesh[] meshes;
+            public geometry_msgs.Pose[] mesh_poses;
+
+            public shape_msgs.Plane[] planes;
+            public geometry_msgs.Pose[] plane_poses;
+
+            public const byte ADD = 0;
+            public const byte REMOVE = 1;
+            public const byte APPEND = 2;
+            public const byte MOVE = 3;
+
+            public byte operation;
+        }
+    }
+
+    namespace object_recognition_msgs {
+        public class ObjectType
+        {
+            public string key;
+            public string db;
+        }
+    }
+
+    namespace shape_msgs {
+        public class SolidPrimitive
+        {
+            public const byte BOX = 1;
+            public const byte SPHERE = 2;
+            public const byte CYLINDER = 3;
+            public const byte CONE = 4;
+
+            public byte type;
+
+            double[] dimensions;
+
+            public const byte BOX_X = 0;
+            public const byte BOX_Y = 1;
+            public const byte BOX_Z = 2;
+
+            public const byte SPHERE_RADIUS = 0;
+
+            public const byte CYLINDER_HEIGHT = 0;
+            public const byte CYLINDER_RADIUS = 1;
+
+            public const byte CONE_HEIGHT = 0;
+            public const byte CONE_RADIUS = 1;
+        }
+
+        public class Mesh { }
+        public class Plane { }
+    }
+
+    namespace geometry_msgs
+    {
+        public class Pose
+        {
+            public Point position;
+            public Quaternion orientation;            
+        }
+
+        public class Point
+        {
+            public double x;
+            public double y;
+            public double z;
+        }
+
+        public class Quaternion
+        {
+            public double x;
+            public double y;
+            public double z;
+            public double w;
+        }
+
+        public class PointStamped
+        {
+            public Header header;
+            public Point point;
+        }
+    }
+    // contains information for controlling the robotiq-3finger adaptive gripper
+    public class OutputMessageData : MessageData{
 		public uint rACT = 0;
 		public uint rMOD = 0;
 		public uint rGTO = 0;

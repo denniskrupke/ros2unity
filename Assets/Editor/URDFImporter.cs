@@ -579,6 +579,7 @@ public class URDFImporter : EditorWindow {
 		}
 
 		//Initialize Joints
+        /*
 		for(int i=0; i<Joints.Count; i++) {
 			BioIK.KinematicJoint joint = Joints[i].gameObject.AddComponent<BioIK.KinematicJoint>();
 			URDFData.JointData jointData = data.GetJointData(joint.name);
@@ -616,7 +617,7 @@ public class URDFImporter : EditorWindow {
 				joint.Initialise();
 			}
 		}
-
+        */
 		if(Errors == 0) {
 			Debug.Log("Successfully imported '" + actor.name + "'.");
 		} else {

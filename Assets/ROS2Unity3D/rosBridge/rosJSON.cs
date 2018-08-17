@@ -100,9 +100,12 @@ namespace RosJSON
 				return new JointState();
 			} break;
 			case "/camera/depth/points": {
-					return new PointCloud2();
-				} break;
-			default:  return new MessageData(); // no data inside :-(
+				return new PointCloud2();
+			} break;
+            case "/pr2_phantom/collision_object": {
+                return new RosMessages.moveit_msgs.CollisionObject();
+            } break;
+                default:  return new MessageData(); // no data inside :-(
 			}
 	    }
 
