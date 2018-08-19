@@ -19,7 +19,7 @@ public class PR2Interface : MonoBehaviour {
             SendPickCommandToRos(); //TODO: do this e.g. caused by the click on the phantom-button
         }
 
-        ProcessCollisionObject(); // incoming job
+        ProcessCollisionObject(); // incoming job   
     }
 
     private void SendPickCommandToRos() {
@@ -49,13 +49,16 @@ public class PR2Interface : MonoBehaviour {
         return pickPoint;
     }
 
-    public void ProcessCollisionObject() {
+    private void ProcessCollisionObject() {
         CollisionObject co = null;
         if (manager != null) {
             if (co != manager.GetRosBridgeClient().GetLatestCollisionObject())
             {
                 co = manager.GetRosBridgeClient().GetLatestCollisionObject();
-                //TODO: spawn the object in ithe scene
+                if (co != null)
+                {
+                    //TODO: spawn the object in ithe scene
+                }
             }
         }
     }
