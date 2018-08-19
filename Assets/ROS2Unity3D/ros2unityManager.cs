@@ -7,61 +7,31 @@ using AbstractionLayer;
 using RosMessages;
 
 public class ros2unityManager : MonoBehaviour {
+    [Header("ROSbridge settings")]
     [SerializeField]
     private string rosmaster_ip = "134.100.13.221";
 
     [SerializeField]
     private string rosbridge_port = "8080";
 
-    public bool autoConnect = false;
-	public bool verbose = true;
+    [SerializeField]
+    private bool verbose = true;
 
-	//public bool imageStreaming = false;
-	//public bool jointStates = true;
-	//public bool useLeap = false;
-	//public bool testLatency = false;
-	//public bool pointCloud = false;
+    [SerializeField]
+    private bool autoConnect = false;
 
-	//public drawImage canvas;
-	//public actuateManipulator manipulatorControl;
-	//public processLeapFrames leapController;
+    [Header("Subscribe to...")]
+    [SerializeField]
+    private bool collisionObject;
 
-	private RosBridgeClient rosBridge;
-	//private HandControlMessageGenerator gripperMsgGen;
-	//private JointStateGenerator jointStateMsgGen;
-
-	//private int millisSinceLastGripperCommand = Environment.TickCount;
-	private static long messageSeq = 0;
+    //private int millisSinceLastGripperCommand = Environment.TickCount;
+    //private static long messageSeq = 0;
 
 
-	void Start () {
-        //gripperMsgGen = new HandControlMessageGenerator ();
-        //rosBridge = new RosBridgeClient(this.rosmaster_ip, this.rosbridge_port, this.verbose);//, this.imageStreaming, this.jointStates, this.testLatency, this.pointCloud);
-
-		if (autoConnect) {
+    void Start () {      
+		if (autoConnect && !RosBridgeClient.GetInstance(this.rosmaster_ip, this.rosbridge_port, this.verbose, this.collisionObject).IsConnected()) {
 			Connect ();
 		}
-        else
-        {
-            RosBridgeClient.GetRosBridgeClient(this.rosmaster_ip, this.rosbridge_port, this.verbose).Start();
-        }
-
-		// leapController.Activate (useLeap);
-        /*
-		if (testLatency) {
-			jointStateMsgGen = new JointStateGenerator ();
-		//	rosBridge.EnqueRosCommand (new RosAdvertise ("/SModelRobotOutput", "SModel_robot_output"));
-		}
-        */
-        /*
-        if (autoConnect)
-        {
-            if (!rosBridge.IsConnected())
-            {
-                Connect();
-            }
-        }
-        */
 	}
 
 	// starts the connection to the ROSbridge
@@ -69,81 +39,31 @@ public class ros2unityManager : MonoBehaviour {
 		if (verbose) {
 			Debug.Log ("Try to connect with ROSbridge via websockets.");
 		}
-		RosBridgeClient.GetRosBridgeClient(this.rosmaster_ip, this.rosbridge_port, this.verbose).Start ();
+		RosBridgeClient.GetInstance(this.rosmaster_ip, this.rosbridge_port, this.verbose, this.collisionObject).Start ();
 	}
 
 
-	/* 
-	 * Here commands to the robot-side can be send
-	 */
 	void Update () {		
-        /*
-		if (Input.GetKeyDown (KeyCode.C)) {
-			rosBridge.EnqueRosCommand (new RosPublish ("/SModelRobotOutput", HandControlMessageGenerator.closeHand (1.0f)));
-		} else if (Input.GetKeyDown (KeyCode.O)) {
-			rosBridge.EnqueRosCommand (new RosPublish ("/SModelRobotOutput", HandControlMessageGenerator.openHand (1.0f)));
-		} else if (Input.GetKey (KeyCode.M)) {	//sends a perormance-test ping message	
-			JointState jointState = JointStateGenerator.emptyJointState();
-			Stamp stamp = new Stamp ();
-			DateTime currentTime = DateTime.Now;
-			stamp.secs = currentTime.Second;
-			stamp.nsecs = currentTime.Millisecond;
-			Header header = new Header ();
-			header.stamp = stamp;
-			header.seq = (ulong)messageSeq++;
-			header.frame_id = "Latency Test";
-			jointState.header = header;
-			rosBridge.EnqueRosCommand (new RosPublish ("/joint_states", jointState));
-			//rosBridge.EnqueRosCommand (new RosPublish ("/SModelRobotOutput", HandControlMessageGenerator.openHand (1.0f)));
-		}
-		else if (Input.GetKeyDown(KeyCode.W)){
-			rosBridge.WriteLatencyDataFile();
-		}
-        */
+        // Do stuff for each frame
 	}
 
 
 	// for efficiency reasons, motion of the robot joints and updates of the streamed video are done with 30 FPS
 	void FixedUpdate(){
 		// processing is only reasonable if connected to the ROSbridge
-		if (RosBridgeClient.GetRosBridgeClient(this.rosmaster_ip, this.rosbridge_port, this.verbose).IsConnected()) {
-
-            //TODO 
-
-
-			/*if (imageStreaming) {
-				// displaying the streamed images from the openni2 node on a canvas
-				canvas.showImage (rosBridge.GetLatestImage ().data);
-			} 
-            */
-            /*
-			if (jointStates) {
-				// synchronizes the virtual robot with the joint state of the real one
-				manipulatorControl.UpdateJointStates (rosBridge.GetLatestJoinState ().name, rosBridge.GetLatestJoinState ().position);
-			}
-            */
-			/*
-			if (useLeap) {
-				// processes data from tracked hands with reduced rate of 10Hz and sends control commands to the real gripper with the same rate
-				if (millisSinceLastGripperCommand + 100 > Environment.TickCount) {
-					return;
-				}
-				millisSinceLastGripperCommand = Environment.TickCount;
-				//TODO normalizing to a reasonable range
-				rosBridge.EnqueRosCommand (new RosPublish ("/SModelRobotOutput", HandControlMessageGenerator.closeHand (leapController.GetHandClosingState ()))); //direct mapping between PinchStrength and ClosingState of the gripper
-			}
-			*/
+		if (RosBridgeClient.GetInstance(this.rosmaster_ip, this.rosbridge_port, this.verbose, this.collisionObject).IsConnected()) {
+            // Do stuff with exactly 30 Hz
 		}
-        /*
-        else {
-			canvas.showTestImage ();
-		}
-        */
 	}
 
 
 	// Closes the connection to the ROSbridge
 	void OnDestroy(){
-        RosBridgeClient.GetRosBridgeClient(this.rosmaster_ip, this.rosbridge_port, this.verbose).Disconnect ();
+        RosBridgeClient.GetInstance(this.rosmaster_ip, this.rosbridge_port, this.verbose, this.collisionObject).Disconnect ();
+        //TODO stop the threads
 	}
+
+    public RosBridgeClient GetRosBridgeClient() {
+        return RosBridgeClient.GetInstance(this.rosmaster_ip, this.rosbridge_port, this.verbose, this.collisionObject);
+    }
 }

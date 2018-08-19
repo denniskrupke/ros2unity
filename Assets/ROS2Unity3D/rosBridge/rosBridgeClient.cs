@@ -19,86 +19,73 @@ using AbstractionLayer;
 
 
 namespace RosBridge{
-	/* TODO:
-		- automatic reconnect
-		- latest frame buffers (robot state, image, point cloud, ...)
-	*/
+	
 	public class RosBridgeClient {
-        private static RosBridgeClient client = null;
-		private static string ROSBRIDGE_IP = "134.100.13.202";//"192.168.104.159";//
+        private static RosBridgeClient instance = null;
+		private static string ROSBRIDGE_IP = "134.100.13.202";
 		private static string ROSBRIDGE_PORT = "8080";
-//		private static readonly bool DEBUG = false;
 
 		private static WebSocket rosBridgeWebSocket = null;
 		private static UTF8Encoding encoder = new UTF8Encoding();
-
-//		private static int millisSinceLastCallOfSomething = Environment.TickCount;
-//		private static int countFrames = 0;
-//		private static string rosMessageJSONstring = "";
-		private int millisSinceLastArmUpdate = Environment.TickCount;
-		private static bool verbose;
-
-        //private CompressedImage latestImage;
-        //private JointState latestJointState;
-
+        
+		private static bool verbose  = false;
+        
+        // buffering the latest collision object
         private RosMessages.moveit_msgs.CollisionObject latest_collisionObject;
 
+        // threads for concurrent message processsing
         private Thread threadWorkerCommunication;
 		private Thread threadWorkerMessageProcessing;
 		private Thread threadWorkerCommandProcessing;
 
+        // queues for incoming and outgoing messages
         private Queue<string> rosMessageStrings;
 		private Queue<RosMessage> rosCommandQueue;
 
         private bool processMessageQueue = true;
 		private bool processCommandQueue = true;
 
+        // locks for managing concurrent access to the queues
         private readonly object syncObjMessageQueue = new object();
 		private readonly object syncObjCommandQueue = new object();
 
 		private RosPublish rosPublishIncoming;
 		private RosMessageConverter rosMessageConverter;
 
+        /*
 		// parameters for queue processińg frequency
 		private static readonly int minSleep = 1;
 		private static readonly int maxSleep = 200;
 		private static readonly int initialSleep = 20;
 		private int inputSleep = initialSleep;
 		private int outputSleep = initialSleep;
+        */
 
+        private static bool collisionObject;
 		//private static bool imageStreaming;
 		//private static bool jointStates;
 		//private static bool testLatency;
 		//private static bool pointCloud;
 
-		//private StreamWriter streamWriter;
-		private List<string> latencyData;
-
-        public static RosBridgeClient GetRosBridgeClient(string rosmaster_ip, string rosbridge_port, bool verbose)
+	    // lazy singleton pattern
+        public static RosBridgeClient GetInstance(string rosmaster_ip, string rosbridge_port, bool verbose, bool collisionObject)
         {
-            if (client == null) client = new RosBridgeClient(rosmaster_ip, rosbridge_port, verbose);
-            return client;
+            if (instance == null) instance = new RosBridgeClient(rosmaster_ip, rosbridge_port, verbose, collisionObject);
+            return instance;
         }
 
-        private RosBridgeClient(string rosmaster_ip, string rosbridge_port, bool verbose){//, bool imageStreaming, bool jointStates, bool testLatency, bool pointCloud){
-
+        // private constructor...use GetInstance() instead
+        private RosBridgeClient(string rosmaster_ip, string rosbridge_port, bool verbose, bool collisionObject){
             RosBridgeClient.ROSBRIDGE_IP = rosmaster_ip;
             RosBridgeClient.ROSBRIDGE_PORT = rosbridge_port;
 			RosBridgeClient.verbose = verbose;
-            //RosBridgeClient.imageStreaming = imageStreaming;
-            //RosBridgeClient.jointStates = jointStates;
-            //RosBridgeClient.testLatency = testLatency;
+            RosBridgeClient.collisionObject = collisionObject;
 
-            //latestImage = new CompressedImage ();				// Buffer for latest incoming image message
-            //latestJointState = new JointState ();				// Buffer for latest incoming jointState	
             latest_collisionObject = new RosMessages.moveit_msgs.CollisionObject();
 
             rosMessageStrings = new Queue<string> ();			// Incoming message queue
 			rosMessageConverter = new RosMessageConverter ();	// Deserializing of incoming ROSmessages
 			rosCommandQueue = new Queue<RosMessage> ();			// Outgoing message queue
-
-			//streamWriter = new StreamWriter("latencyData.txt");
-			//latencyData = new List<string> ();
 		}
 
 		public void Start (){
@@ -157,6 +144,7 @@ namespace RosBridge{
 	    	finally {}
 	    }
 
+        // checks the websocket connection
 		public bool IsConnected(){
 			bool connected = (rosBridgeWebSocket == null) ? false : rosBridgeWebSocket.IsConnected;
 			return connected;
@@ -172,7 +160,7 @@ namespace RosBridge{
 
 
 
-		// TODO: I have to be aware of too many deserializations of messages by filtering the flood of messages. Naive approach isk classifying by names...
+		// TODO: I have to be aware of too many deserializations of messages by filtering the flood of messages. Naive approach is classifying by names...
 		private void ReceiveAndEnqueue(object sender, MessageEventArgs e){
 			//MaybeLog ("Receive...");
 			if(!string.IsNullOrEmpty(e.Data)) {
@@ -184,13 +172,12 @@ namespace RosBridge{
 					millisSinceLastArmUpdate = Environment.TickCount;
 				}
                 */
-				lock (syncObjMessageQueue) {
-					//MaybeLog ("Enqueue...");               
-					this.rosMessageStrings.Enqueue (e.Data);
-					//MaybeLog("" + rosMessageStrings.Count ());
-                    Debug.Log("" + rosMessageStrings.Count());
+                MaybeLog("Try to Enqueue...");
+                lock (syncObjMessageQueue) {	               
+					this.rosMessageStrings.Enqueue (e.Data);					
 				}
-			}
+                MaybeLog("" + rosMessageStrings.Count());
+            }
 	    }
 
 
@@ -198,22 +185,26 @@ namespace RosBridge{
 			while(processMessageQueue){
 				//MaybeLog ("ProcessRosMessageQueue...");
 				if (this.rosMessageStrings.Count()>0) {
-					if (this.rosMessageStrings.Count >= 1) {
+					/*if (this.rosMessageStrings.Count >= 1) {
 						inputSleep = Math.Max(minSleep, inputSleep-1);
-					} 
-					//MaybeLog ("Try to dequeue...");
+					} */
+					MaybeLog ("Try to dequeue...");
 					lock (syncObjMessageQueue) {
 						//MaybeLog ("Dequeue...");
 						DeserializeJSONstring (rosMessageStrings.Dequeue ());
 						//rosMessageStrings.TrimExcess ();
 					}
-				}
+                    Thread.Sleep(2);
+                }
+                /*
 				else {
 					inputSleep = Math.Min(maxSleep, inputSleep+1);
 				}
+                */
 				//MaybeLog("" + rosMessageStrings.Count ());
-				Thread.Sleep (inputSleep); //TODO If sleep is to small (depending on the performance of the current machine) no messages can be enqueued :-(
-				//MaybeLog ("input sleep "+inputSleep);
+				//Thread.Sleep (inputSleep); //TODO If sleep is to small (depending on the performance of the current machine) no messages can be enqueued :-(
+                                           //MaybeLog ("input sleep "+inputSleep);
+                
 			}
 		}
 
@@ -221,9 +212,9 @@ namespace RosBridge{
 		public void EnqueRosCommand(RosMessage message){
 			lock (syncObjCommandQueue) {
 				this.rosCommandQueue.Enqueue (message);
-				MaybeLog("" + rosCommandQueue.Count ());
 			}
-		}
+            MaybeLog("" + rosCommandQueue.Count());
+        }
 
 
 		private void ProcessRosCommandQueue(){
@@ -237,15 +228,15 @@ namespace RosBridge{
 					lock (syncObjCommandQueue) {
 						Send (rosCommandQueue.Dequeue ());
 					}
-				}
+                    Thread.Sleep(2);
+                }
                 /*
 				else {
 					outputSleep = Math.Min(maxSleep, outputSleep+1);
 				}
                 */
                 //MaybeLog("commandSleep: " + outputSleep);
-                Thread.Sleep(2);// outputSleep);
-
+                // outputSleep);
 			}
 		}
 
@@ -258,6 +249,7 @@ namespace RosBridge{
 			Thread.Sleep(2000);
 			MaybeLog ("...connect done!");
 
+            // Code should only be reachable if connect() was succesful
 			if (rosBridgeWebSocket.IsConnected) {
                 /*
 				if(RosBridgeClient.imageStreaming) {
@@ -276,9 +268,12 @@ namespace RosBridge{
 					MaybeLog ("Subscribing to /camera/depth/points");
 					Send (new RosSubscribe ("/camera/depth/points", "sensor_msgs/PointCloud2"));
 				}
-                */                
-                MaybeLog("Subscribing to /pr2_phantom/collision_object");
-                Send(new RosSubscribe("/pr2_phantom/collision_object", "moveit_msgs/CollisionObject"));                
+                */
+                if (RosBridgeClient.collisionObject) {
+                    MaybeLog("Subscribing to /pr2_phantom/collision_object");
+                    Send(new RosSubscribe("/pr2_phantom/collision_object", "moveit_msgs/CollisionObject",0,1));
+                }
+                                
             } else {
 				//Connect("ws://"+ROSBRIDGE_IP+":"+ROSBRIDGE_PORT);
 				//Communicate ();
@@ -320,44 +315,17 @@ namespace RosBridge{
 		private void DeserializeJSONstring(string message){
 			Debug.Log ("Try to deserialize: " + message);
 			rosPublishIncoming = (RosPublish)JsonConvert.DeserializeObject<RosMessage>(message, rosMessageConverter);
-            //Debug.Log (rosPublish.topic);
-           /*
-            if (rosPublishIncoming.topic.Equals("/joint_states"))
-            {
-                //Debug.Log ("received joint states");
-                latestJointState = (JointState)rosPublishIncoming.msg;
 
-                // TODO latency evaluation
-                //if(testLatency){
-                //	if(latestJointState.header.frame_id == "Latency Test"){
-                // TODO storing this information to a file
-                DateTime currentTime = DateTime.Now;
-                int secs = currentTime.Second;
-                int nsecs = currentTime.Millisecond;
-                //Debug.Log(""+latestJointState.header.frame_id+" "+latestJointState.header.seq+" "+latestJointState.header.stamp.secs+":"+latestJointState.header.stamp.nsecs );
-                //Debug.Log ("received: " + secs + ":" + nsecs);
-                string dataLine = "" + (latestJointState.header.stamp.secs * 1000 + latestJointState.header.stamp.nsecs) + "," + (secs * 1000 + nsecs) + "," + ((secs * 1000 + nsecs) - (latestJointState.header.stamp.secs * 1000 + latestJointState.header.stamp.nsecs));
-                //Debug.Log ("dataline " + dataLine);
-                latencyData.Add(dataLine);
-                //streamWriter.WriteLine ("" + latestJointState.header.stamp.secs * 1000 + latestJointState.header.stamp.nsecs + "," + secs * 1000 + nsecs + "," + ((secs * 1000 + nsecs) - (latestJointState.header.stamp.secs * 1000 + latestJointState.header.stamp.nsecs)));
-                //streamWriter.Close ();
-                //	}
-                //}
-            }
-            else 
-            */
-            if (rosPublishIncoming.topic.Equals("/pr2_phantom/collision_object")) {
-                //TODO
-            }
-
-            /*
-            // else if (rosPublishIncoming.topic.Equals("/camera/rgb/image_rect_color/compressed")) { 	
-            else if (rosPublishIncoming.topic.Equals("/usb_cam/image_raw/compressed"))
+            if (rosPublishIncoming.topic.Equals("/pr2_phantom/collision_object"))
             {
-                latestImage = (CompressedImage)rosPublishIncoming.msg;
+                latest_collisionObject = (RosMessages.moveit_msgs.CollisionObject)rosPublishIncoming.msg;
             }
-            */
 		}
+
+        public RosMessages.moveit_msgs.CollisionObject GetLatestCollisionObject()
+        {
+            return this.latest_collisionObject;
+        }
 
         /*
 		public void WriteLatencyDataFile(){
