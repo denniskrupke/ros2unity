@@ -47,9 +47,13 @@ public class ros2unityManager : MonoBehaviour {
         // Do stuff for each frame
 	}
 
+    private void OnApplicationQuit()
+    {
+        RosBridgeClient.GetInstance(this.rosmaster_ip, this.rosbridge_port, this.verbose, this.collisionObject).Stop();
+    }
 
-	// for efficiency reasons, motion of the robot joints and updates of the streamed video are done with 30 FPS
-	void FixedUpdate(){
+    // for efficiency reasons, motion of the robot joints and updates of the streamed video are done with 30 FPS
+    void FixedUpdate(){
 		// processing is only reasonable if connected to the ROSbridge
 		if (RosBridgeClient.GetInstance(this.rosmaster_ip, this.rosbridge_port, this.verbose, this.collisionObject).IsConnected()) {
             // Do stuff with exactly 30 Hz

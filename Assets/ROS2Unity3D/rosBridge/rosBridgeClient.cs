@@ -109,6 +109,18 @@ namespace RosBridge{
 			threadWorkerCommandProcessing.Start ();
 		}
 
+        public void Stop()
+        {
+            Disconnect();
+
+            processMessageQueue = false;
+            processCommandQueue = false;
+
+            threadWorkerCommunication.Abort();
+            threadWorkerCommandProcessing.Abort();
+            threadWorkerMessageProcessing.Abort();
+        }
+
 		// connects with the ROSbridge server
 	    private void Connect(string uri){
 			MaybeLog ("Connect...");
