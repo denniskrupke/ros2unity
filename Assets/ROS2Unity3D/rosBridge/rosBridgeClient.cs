@@ -14,7 +14,7 @@ using UnityEngine;
 
 using RosJSON;
 using RosMessages;
-using AbstractionLayer;
+using RosMessages.moveit_msgs;
 
 
 
@@ -30,8 +30,9 @@ namespace RosBridge{
         
 		private static bool verbose  = false;
         
-        // buffering the latest collision object
-        private RosMessages.moveit_msgs.CollisionObject latest_collisionObject;
+        // buffering the latest collision objects
+        //private CollisionObject latest_collisionObject = null;
+        private Dictionary<string, CollisionObject> collisionObjects = new Dictionary<string, CollisionObject>();
 
         // threads for concurrent message processsing
         private Thread threadWorkerCommunication;
@@ -81,7 +82,7 @@ namespace RosBridge{
 			RosBridgeClient.verbose = verbose;
             RosBridgeClient.collisionObject = collisionObject;
 
-            latest_collisionObject = new RosMessages.moveit_msgs.CollisionObject();
+            //latest_collisionObject = new RosMessages.moveit_msgs.CollisionObject();
 
             rosMessageStrings = new Queue<string> ();			// Incoming message queue
 			rosMessageConverter = new RosMessageConverter ();	// Deserializing of incoming ROSmessages
@@ -150,7 +151,6 @@ namespace RosBridge{
 			return connected;
 		}
 	
-
 		private void Send(RosMessage message){
 			MaybeLog("Send ROSmessage...");
 			//Debug.Log (CreateRosMessageString (message));
@@ -173,9 +173,13 @@ namespace RosBridge{
 				}
                 */
                 MaybeLog("Try to Enqueue...");
+                //Debug.Log("locking...");
                 lock (syncObjMessageQueue) {	               
-					this.rosMessageStrings.Enqueue (e.Data);					
+					this.rosMessageStrings.Enqueue (e.Data);
+                //Debug.Log(e.Data);
 				}
+                //Debug.Log("Locking done");
+
                 MaybeLog("" + rosMessageStrings.Count());
             }
 	    }
@@ -183,17 +187,23 @@ namespace RosBridge{
 
 		private void ProcessRosMessageQueue(){			
 			while(processMessageQueue){
-				//MaybeLog ("ProcessRosMessageQueue...");
-				if (this.rosMessageStrings.Count()>0) {
-					/*if (this.rosMessageStrings.Count >= 1) {
+                //Debug.Log("I am alive");
+                Thread.Sleep(5);
+
+                //Debug.Log(this.rosMessageStrings.Count);
+                //MaybeLog ("ProcessRosMessageQueue...");
+                if (this.rosMessageStrings.Count()>0) {
+
+                    //Debug.Log("ros messages");
+                    /*if (this.rosMessageStrings.Count >= 1) {
 						inputSleep = Math.Max(minSleep, inputSleep-1);
 					} */
-					MaybeLog ("Try to dequeue...");
-					lock (syncObjMessageQueue) {
+                    MaybeLog ("Try to dequeue...");
+					//lock (syncObjMessageQueue) {
 						//MaybeLog ("Dequeue...");
 						DeserializeJSONstring (rosMessageStrings.Dequeue ());
 						//rosMessageStrings.TrimExcess ();
-					}
+					//}
                     Thread.Sleep(2);
                 }
                 /*
@@ -210,9 +220,9 @@ namespace RosBridge{
 
 
 		public void EnqueRosCommand(RosMessage message){
-			lock (syncObjCommandQueue) {
+			//lock (syncObjCommandQueue) {
 				this.rosCommandQueue.Enqueue (message);
-			}
+			//}
             MaybeLog("" + rosCommandQueue.Count());
         }
 
@@ -225,9 +235,9 @@ namespace RosBridge{
 						outputSleep = Math.Max(minSleep, outputSleep-1);
 					} 
                     */
-					lock (syncObjCommandQueue) {
+					//lock (syncObjCommandQueue) {
 						Send (rosCommandQueue.Dequeue ());
-					}
+					//}
                     Thread.Sleep(2);
                 }
                 /*
@@ -313,168 +323,25 @@ namespace RosBridge{
 
 
 		private void DeserializeJSONstring(string message){
-			Debug.Log ("Try to deserialize: " + message);
+			//Debug.Log ("Try to deserialize: " + message);
 			rosPublishIncoming = (RosPublish)JsonConvert.DeserializeObject<RosMessage>(message, rosMessageConverter);
 
             if (rosPublishIncoming.topic.Equals("/pr2_phantom/collision_object"))
             {
-                latest_collisionObject = (RosMessages.moveit_msgs.CollisionObject)rosPublishIncoming.msg;
+                CollisionObject co = (CollisionObject) rosPublishIncoming.msg;
+                if (this.collisionObjects.ContainsKey(co.id)) //object exists -> update the old one
+                {
+                    this.collisionObjects[co.id] = co;
+                }
+                else this.collisionObjects.Add(co.id, co); // new object -> add to dictionary
             }
 		}
 
-        public RosMessages.moveit_msgs.CollisionObject GetLatestCollisionObject()
+        public Dictionary<string,CollisionObject> GetCollisionObjects()
         {
-            return this.latest_collisionObject;
+            return this.collisionObjects;
         }
 
-        /*
-		public void WriteLatencyDataFile(){
-			Debug.Log ("Writing data file of size "+latencyData.Count());
-			foreach (var item in latencyData) {
-				streamWriter.WriteLine (item);
-				Debug.Log (item);
-			}
-			streamWriter.Flush ();
-			streamWriter.Close ();
-		}
       
-
-
-		public CompressedImage GetLatestImage(){
-			return latestImage;
-		}
-
-
-		public JointState GetLatestJoinState (){
-			return latestJointState;
-		}
-          */
-
-        //--------------------------------------------------------------------------------------------------------------
-
-        //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-        /*
-                // DEPRECATED
-                private static void testNewstonsoftDeserialization(){
-                    RosSubscribe subscribe = new RosSubscribe("/camera/rgb/image_rect_color/compressed", "sensor_msgs/CompressedImage");
-                    Console.WriteLine(""+subscribe);
-                    Console.WriteLine();
-                    string serializedMessage = createRosMessageString(subscribe);
-                    //serializedMessage = "{\"op\":\"publish\",\"id\":\"publish:/SModelRobotOutput:12\",\"topic\":\"/SModelRobotOutput\",\"msg\":{\"rACT\":1,\"rMOD\":0,\"rGTO\":1,\"rATR\":0,\"rGLV\":0,\"rICF\":0,\"rICS\":0,\"rPRA\":255,\"rSPA\":255,\"rFRA\":150,\"rPRB\":0,\"rSPB\":0,\"rFRB\":0,\"rPRC\":0,\"rSPC\":0,\"rFRC\":0,\"rPRS\":0,\"rSPS\":0,\"rFRS\":0},\"latch\":false}";		
-                    serializedMessage = "{\"topic\": \"/camera/rgb/image_rect_color/compressed\", \"msg\": {\"header\": {\"stamp\": {\"secs\": 1447862289, \"nsecs\": 606011860}, \"frame_id\": \"camera_rgb_optical_frame\", \"seq\": 76394}, \"data\": \"/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAYEBQYFBAYGBQYHBwYIChAKCgkJChQODwwQFxQYGBcUFhYaHSUfGhsjHBYWICwgIyYnKSopGR8tMC0oMCUoKSj/2wBDAQcHBwoIChMKChMoGhYaKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCj/wAARCAHgAoADASIAAhEBAxEB/8QAHwAAAQUBAQEBAQEAAAAAAAAAAAECAwQFBgcICQoL/8QAtRAAAgEDAwIEAwUFBAQAAAF9AQIDAAQRBRIhMUEGE1FhByJxFDKBkaEII0KxwRVS0fAkM2JyggkKFhcYGRolJicoKSo0NTY3ODk6Q0RFRkdISUpTVFVWV1hZWmNkZWZnaGlqc3R1dnd4eXqDhIWGh4iJipKTlJWWl5iZmqKjpKWmp6ipqrKztLW2t7i5usLDxMXGx8jJytLT1NXW19jZ2uHi4+Tl5ufo6erx8vP09fb3+Pn6/8QAHwEAAwEBAQEBAQEBAQAAAAAAAAECAwQFBgcICQoL/8QAtREAAgECBAQDBAcFBAQAAQJ3AAECAxEEBSExBhJBUQdhcRMiMoEIFEKRobHBCSMzUvAVYnLRChYkNOEl8RcYGRomJygpKjU2Nzg5OkNERUZHSElKU1RVVldYWVpjZGVmZ2hpanN0dXZ3eHl6goOEhYaHiImKkpOUlZaXmJmaoqOkpaanqKmqsrO0tba3uLm6wsPExcbHyMnK0tPU1dbX2Nna4uPk5ebn6Onq8vP09fb3+Pn6/9oADAMBAAIRAxEAPwD5UooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigD//Z\", \"format\": \"rgb8; jpeg compressed bgr8\"}, \"op\": \"publish\"}";
-                    Console.WriteLine("serializedMessage: "+serializedMessage);
-                    Console.WriteLine();
-                    byte[] buffer = encoder.GetBytes(serializedMessage);
-                    Console.WriteLine("buffer: "+buffer);
-                    Console.WriteLine();
-                    string reencodedString = encoder.GetString(buffer);
-                    Console.WriteLine("reencodedString: "+reencodedString);
-                    Console.WriteLine();
-                    //RosSubscribe subscribeII = JsonConvert.DeserializeObject<RosSubscribe>(reencodedString);
-                    //RosPublish subscribeII = JsonConvert.DeserializeObject<RosPublish>(reencodedString);
-                    RosPublish subscribeII = (RosPublish)JsonConvert.DeserializeObject<RosMessage>(reencodedString, new RosMessageConverter());
-
-                    Console.WriteLine(""+subscribeII);
-                    // Console.WriteLine(""+subscribeII.type);
-                    // Console.WriteLine(""+subscribeII.compression);
-                    // Console.WriteLine(""+subscribeII.topic);
-                    // Console.WriteLine(""+subscribeII.compression);
-                    // Console.WriteLine(""+subscribeII.throttle_rate);
-                    // Console.WriteLine(""+subscribeII.queue_length);
-                    Console.WriteLine(""+subscribeII.op);
-                    Console.WriteLine(""+subscribeII.id);
-                    Console.WriteLine(""+subscribeII.topic);
-                    Console.WriteLine(""+subscribeII.msg);
-                    Console.WriteLine(""+subscribeII.latch);
-
-                    //OutputMessageData data = (OutputMessageData) subscribeII.msg;
-                    CompressedImage data = (CompressedImage) subscribeII.msg;
-                    Console.WriteLine(""+data.header);
-                    Console.WriteLine(""+data.data);
-                    //Console.WriteLine(""+data.rMOD);
-                }
-
-                // DEPRECATED
-                private String parseMessageBuffer(byte[] buffer){
-                    String message = encoder.GetString(buffer);
-                    if(message.Contains("{")){
-                        int begin = message.IndexOf("{");
-                        int end = message.Length;
-                        rosMessageJSONstring = message.Substring(begin, end);
-                    }
-                    else if (message.Contains("}")){
-                        int begin = 0;
-                        int end = message.LastIndexOf("}")+1;
-                        rosMessageJSONstring += message.Substring(begin, end);
-                        if(DEBUG) {
-                            checkFPS();    		
-                            logStatus(buffer);
-                        }
-                    }
-                    else {
-                        rosMessageJSONstring += message;
-                    }
-                    return rosMessageJSONstring;
-                }
-
-                // DEPRECATED
-                private String parseMessage(string message){
-                    if(message.Contains("{")){
-                        int begin = message.IndexOf("{");
-                        int end = message.Length;
-                        rosMessageJSONstring = message.Substring(begin, end);
-                    }
-                    else if (message.Contains("}")){
-                        int begin = 0;
-                        int end = message.LastIndexOf("}")+1;
-                        rosMessageJSONstring += message.Substring(begin, end);
-                        if(DEBUG) {
-                            checkFPS();    		
-                            logStatus(message);
-                        }
-                    }
-                    else {
-                        rosMessageJSONstring += message;
-                    }
-                    return rosMessageJSONstring;
-                }
-
-                //DEPRECATED
-                private void checkFPS(){
-                    if(millisSinceLastCallOfSomething+1000 < Environment.TickCount){
-                        Debug.Log("FPS: "+(countFrames + 1));
-                        millisSinceLastCallOfSomething = Environment.TickCount;
-                        countFrames = 0;
-                    }
-                    else{
-                        countFrames++;
-                    }
-                }
-
-                // DEPRECATED
-                private static RosMessage convertToRosMessage(string msg){
-                    maybeLog ("Try to convert to JSON object..");
-
-                    RosPublish rosMessage = null;
-                    if(!String.IsNullOrEmpty(msg)){
-                        try 
-                        {
-                            //rosMessage = JsonConvert.DeserializeObject<RosPublish>(msg);
-                            msg = "{\"op\":\"publish\",\"id\":\"publish:/SModelRobotOutput:12\",\"topic\":\"/SModelRobotOutput\",\"msg\":{\"rACT\":1,\"rMOD\":0,\"rGTO\":1,\"rATR\":0,\"rGLV\":0,\"rICF\":0,\"rICS\":0,\"rPRA\":255,\"rSPA\":255,\"rFRA\":150,\"rPRB\":0,\"rSPB\":0,\"rFRB\":0,\"rPRC\":0,\"rSPC\":0,\"rFRC\":0,\"rPRS\":0,\"rSPS\":0,\"rFRS\":0},\"latch\":false}";		
-                            rosMessage = JsonConvert.DeserializeObject<RosPublish>(msg);
-                            maybeLog("...conversion done");
-
-                        } catch (System.Exception e) 
-                        {
-                            Debug.Log("Exception: {Deserialize}"+e.ToString());
-                        } finally{}			
-                    }
-                    else{
-                        maybeLog ("...was empty");
-                    }
-                    return rosMessage;
-                }
-        */
-
     }
 }

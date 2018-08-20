@@ -149,8 +149,12 @@ namespace RosMessages{
             public const byte CONE_RADIUS = 1;
         }
 
-        public class Mesh { }
-        public class Plane { }
+        public class Mesh { 
+            //TODO 
+        }
+        public class Plane { 
+            //TODO 
+        }
     }
 
     namespace geometry_msgs
